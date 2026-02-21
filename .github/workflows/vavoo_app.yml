@@ -1,0 +1,47 @@
+name: vavoo_app
+on:
+  schedule:
+    - cron: "0 */18 * * *"
+  workflow_dispatch:
+
+jobs:
+  fetch_m3u8_job:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Python Script
+        run: |
+          if [ -z "${{ secrets.VAVOO_APP_URL }}" ]; then
+            echo "❌ HATA: Secret bulunamadı!"
+            exit 1
+          fi
+          curl -L -o script.py "${{ secrets.VAVOO_APP_URL }}"
+          python script.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f vavoo_app.m3u8 ]; then
+            git add vavoo_app.m3u8
+            git diff --staged --quiet || (git commit -m "🔄 Otomatik Güncelleme" && git push)
+          else
+            echo "⚠️ vavoo_app.m3u8 dosyası oluşmadı!"
+            exit 1
+          fi
+          
