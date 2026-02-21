@@ -4,18 +4,22 @@ import random
 
 def get_vavoo_signature():
     try:
-        # Güncel signature anahtarları için michaz listesini kullanıyoruz
+        # Vavoo Signature (İmza) almak için güncel anahtar havuzu
         veclist = requests.get("https://raw.githubusercontent.com/michaz1988/michaz1988.github.io/master/data.json").json()
         vec = {"vec": random.choice(veclist)}
         req = requests.post('https://www.vavoo.tv/api/box/ping2', data=vec).json()
-        return req.get('signed') or req.get('data', {}).get('signed') or req.get('response', {}).get('signed')
+        sig = req.get('signed') or req.get('data', {}).get('signed') or req.get('response', {}).get('signed')
+        return sig
     except:
         return None
 
 def main():
     sig = get_vavoo_signature()
-    headers = {'User-Agent': 'VAVOO/2.6'}
+    if not sig:
+        print("⚠️ İmza alınamadı, linkler çalışmayabilir.")
+    
     url = "https://www2.vavoo.to/live2/index?output=json"
+    headers = {'User-Agent': 'VAVOO/2.6'}
 
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -28,33 +32,36 @@ def main():
                 name = c.get('name', '').upper()
                 group = c.get('group', 'Vavoo')
                 logo = c.get('logo', '')
-                # Bağlantı hatasını önlemek için linke imzayı ekliyoruz
-                stream_url = f"{c.get('url')}?n=1&sig={sig}" if sig else c.get('url')
+                base_url = c.get('url', '')
                 
-                # Header bilgilerini player'ın anlaması için formatlıyoruz
-                # Bu kısım SSL ve Connection Reset hatalarını önlemek içindir
-                header_info = '#EXTVLCOPT:http-user-agent=VAVOO/2.6\n#EXTHTTP:{"User-Agent":"VAVOO/2.6"}'
+                # RESOLVER MANTIĞI: Linke imza ve gerekli header'ları gömüyoruz
+                # Bu format OTT Navigator ve VLC gibi oynatıcılarda 'çözücü' görevi görür
+                resolved_url = f"{base_url}?n=1&sig={sig}" if sig else base_url
                 
-                # Bein Sport Filtreleme (Sadece Türkiye grubundaki Bein'ler)
+                # Header tanımlamaları (SSL ve Connection Reset hatalarını aşmak için)
+                m3u_entry = (
+                    f'#EXTINF:-1 tvg-logo="{logo}" group-title="{"BEIN SPORTS" if "BEIN" in name and group == "Turkey" else group}",{name}\n'
+                    f'#EXTVLCOPT:http-user-agent=VAVOO/2.6\n'
+                    f'#EXTHTTP:{{"User-Agent":"VAVOO/2.6"}}\n'
+                    f'{resolved_url}|User-Agent=VAVOO/2.6\n'
+                )
+
                 if "BEIN" in name and group == "Turkey":
-                    entry = f'#EXTINF:-1 tvg-logo="{logo}" group-title="BEIN SPORTS",{name}\n{header_info}\n{stream_url}|User-Agent=VAVOO/2.6\n'
-                    bein_list.append(entry)
+                    bein_list.append(m3u_entry)
                 else:
-                    entry = f'#EXTINF:-1 tvg-logo="{logo}" group-title="{group}",{name}\n{header_info}\n{stream_url}|User-Agent=VAVOO/2.6\n'
-                    other_list.append(entry)
+                    other_list.append(m3u_entry)
 
             with open("vavoo_app.m3u8", "w", encoding="utf-8") as f:
                 f.write("#EXTM3U\n")
-                # Önce Bein Sport kanalları
-                for item in bein_list:
-                    f.write(item)
-                # Sonra diğer tüm kanallar
-                for item in other_list:
-                    f.write(item)
+                # Önce çözülmüş Bein kanalları
+                f.writelines(bein_list)
+                # Sonra diğerleri
+                f.writelines(other_list)
             
-            print(f"✅ İşlem Başarılı! {len(bein_list)} Bein kanalı ayrıldı ve en başa eklendi.")
+            print(f"✅ Resolver aktif: {len(bein_list)} Bein kanalı hazır!")
     except Exception as e:
-        print(f"❌ Hata oluştu: {e}")
+        print(f"❌ Kritik Hata: {e}")
 
 if __name__ == "__main__":
     main()
+    
