@@ -1,47 +1,22 @@
-name: vavoo_app
-on:
-  schedule:
-    - cron: "0 */18 * * *"
-  workflow_dispatch:
+import requests
 
-jobs:
-  fetch_m3u8_job:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+def create_m3u():
+    # Burası senin asıl kanal listesinin (m3u) linki
+    source_url = "https://raw.githubusercontent.com/nookjoook56-web/Update-m3u/main/playlist.m3u"
+    
+    try:
+        print("🛰️ Liste indiriliyor...")
+        response = requests.get(source_url)
+        if response.status_code == 200:
+            # İndirilen içeriği yeni bir dosyaya kaydediyoruz
+            with open("vavoo_app.m3u8", "w", encoding="utf-8") as f:
+                f.write(response.text)
+            print("✅ vavoo_app.m3u8 başarıyla oluşturuldu!")
+        else:
+            print(f"❌ Hata: Kaynak dosya alınamadı. Kod: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Bir hata oluştu: {e}")
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: pip install curl_cffi requests
-
-      - name: Run Python Script
-        run: |
-          # Secret'ın dolu olup olmadığını kontrol et
-          if [ -z "${{ secrets.VAVOO_APP_URL }}" ]; then
-            echo "❌ HATA: VAVOO_APP_URL secret bulunamadı!"
-            exit 1
-          fi
-          curl -L -o vavoo_app.py "${{ secrets.VAVOO_APP_URL }}"
-          python vavoo_app.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -f vavoo_app.m3u8 ]; then
-            git add vavoo_app.m3u8
-            git diff --staged --quiet || (git commit -m "🔄 Otomatik Güncelleme" && git push)
-          else
-            echo "⚠️ vavoo_app.m3u8 bulunamadı!"
-            exit 1
-          fi
+if __name__ == "__main__":
+    create_m3u()
+  
