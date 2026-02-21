@@ -1,49 +1,47 @@
-import requests
-import os
-import re
+name: vavoo_app
+on:
+  schedule:
+    - cron: "0 */18 * * *"
+  workflow_dispatch:
 
-# Vavoo'nun güncel config adresi
-VAVOO_CONFIG = "https://vavoo.to/config"
+jobs:
+  fetch_m3u8_job:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-def get_vavoo_token():
-    headers = {
-        'User-Agent': 'VAVOO/2.6',
-        'Accept': 'application/json'
-    }
-    print("🛰️ Token çekiliyor...")
-    try:
-        # GitHub sunucuları bazen engellendiği için timeout'u uzun tutuyoruz
-        response = requests.get(VAVOO_CONFIG, headers=headers, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get('signed') or data.get('token')
-    except Exception as e:
-        print(f"❌ Token alınamadı: {e}")
-    return None
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-def create_m3u8():
-    token = get_vavoo_token()
-    if not token:
-        return
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    # Kendi kanal listen (Buraya istediğin kanalları ekle)
-    channels = [
-        ("https://vavoo.to/live2/play3/593493860.m3u8", "TR: beIN Sports 1"),
-        ("https://vavoo.to/live2/play3/165415732.m3u8", "TR: beIN Sports 2"),
-        ("https://vavoo.to/live2/play3/845123654.m3u8", "TR: beIN Sports 3"),
-        ("https://vavoo.to/live2/kanald.m3u8", "TR: Kanal D"),
-        ("https://vavoo.to/live2/atv.m3u8", "TR: ATV")
-    ]
+      - name: Install dependencies
+        run: pip install curl_cffi requests
 
-    print("📄 Dosya oluşturuluyor...")
-    with open("vavoo_app.m3u8", "w", encoding="utf-8") as f:
-        f.write("#EXTM3U\n")
-        for url, name in channels:
-            # Token'ı linklerin sonuna ekliyoruz
-            f.write(f"#EXTINF:-1,{name}\n{url}?token={token}\n")
-    
-    print("✅ Liste başarıyla hazırlandı.")
+      - name: Run Python Script
+        run: |
+          # Secret'ın dolu olup olmadığını kontrol et
+          if [ -z "${{ secrets.VAVOO_APP_URL }}" ]; then
+            echo "❌ HATA: VAVOO_APP_URL secret bulunamadı!"
+            exit 1
+          fi
+          curl -L -o vavoo_app.py "${{ secrets.VAVOO_APP_URL }}"
+          python vavoo_app.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-if __name__ == "__main__":
-    create_m3u8()
-  
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f vavoo_app.m3u8 ]; then
+            git add vavoo_app.m3u8
+            git diff --staged --quiet || (git commit -m "🔄 Otomatik Güncelleme" && git push)
+          else
+            echo "⚠️ vavoo_app.m3u8 bulunamadı!"
+            exit 1
+          fi
