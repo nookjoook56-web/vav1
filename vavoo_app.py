@@ -3,7 +3,7 @@ import requests
 def create_m3u():
     # 404 hatasını önlemek için alternatif linkleri deneyelim
     # Önce 'master' dalını deniyoruz, çünkü bazen 'main' yerine 'master' kullanılır.
-    source_url = "https://raw.githubusercontent.com/nookjoook56-web/Update-m3u/master/playlist.m3u"
+    source_url = "https://iptv-org.github.io/iptv/countries/tr.m3u"
     
     try:
         print(f"🛰️ Liste indiriliyor: {source_url}")
