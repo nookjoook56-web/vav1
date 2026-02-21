@@ -2,7 +2,7 @@ import requests
 
 def create_m3u():
     # Burası senin asıl kanal listesinin olduğu link
-    source_url = "https://raw.githubusercontent.com/nookjoook56-web/Update-m3u/main/playlist.m3u"
+    source_url = "https://raw.githubusercontent.com/nookjoook56-web/Update-mp3u/main/playlist.m3u"
     
     try:
         print("🛰️ Liste indiriliyor...")
